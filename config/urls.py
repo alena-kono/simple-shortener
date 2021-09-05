@@ -16,7 +16,6 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("users/", include("simple_shortener.users.urls", namespace="users")),
-    path("accounts/", include("allauth.urls")),
     # Apps' paths
     path("", include("url_shortener.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
