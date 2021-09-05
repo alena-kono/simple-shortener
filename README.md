@@ -13,58 +13,97 @@ Simple Shortener
 
 *Наша компания отправляет СМС с трекинговой ссылкой, но ссылка достаточно длинная и из-за этого СМС выходит за 70 символов (длина 1 СМС).Необходимо спроектировать сервис-укорачиватель ссылок, чтобы сэкономить деньги компании.*
 
+Результаты
+----------
+Приложение развернуто на проде (https://alena-kono.space)
+
+
+Получить короткую ссылку:
+
+        $ GET https://alena-kono.space/shorturl?originalUrl=example.com
+
+Примеры ответов:
+
+200
+
+        $   {
+                "status": "success",
+                "data": [
+                    {
+                        "shortened_url": https://alena-kono.space/aAb,
+                        "original_url": example.com,
+                    },
+                        ],
+            }
+400
+
+        $   {
+                "errors": [
+                    {
+                        "status": "error",
+                        "message": "Passed URL is not valid.",
+                    }
+                        ],
+            }
+404
+
+        $   {
+                "errors": [
+                    {
+                        "status": "error",
+                        "message": "Requested URL is not found.",
+                    }
+                        ],
+            }
+
 Ключевые моменты разработки проекта
 -----------------------------------
 
-1. Структура приложения - микросервис. Короткую ссылку можно получить GET запросом из другого сервиса.
-2. Основной инструмент - фреймворк Django.
+1. **Структура приложения**.
+
+Элементарный микросервис. Короткую ссылку можно получить GET запросом из другого сервиса.
+
+2. **Основной инструмент**
+
+Фреймворк Django 3.
+
 Django выбран в качестве рабочего фреймворка в целях демонстрации потенциальному работодателю своих навыков разработки на Django.
-Под указанную структуру приложения лучше подошли бы Flask, Django Rest Framework.
-3. Структура данных и хранилище.
+Под указанную структуру приложения лучше подошли бы минималистичные Flask или FastAPI.
+
+3. **Структура данных и хранилище**.
+
 Выбрана реляционная СУБД (конкретно - PostgreSQL), так как предполагается, что структура данных будет однородна, а, значит, схема данных может быть заранее определена и жестко зафиксирована.
-4.
 
-Telegram bot is deployed at production. Link is
-[here](https://t.me/valley_test_task_bot).
+P.S При выбранном механизме укорачивания ссылок можно было бы обойтись без базы данных, просто формировав id и сохраняя его в кэш, а затем генерируя из него строку для короткой ссылки.
 
-Link to the Django admin panel is
-[here](https://alena-kono.space/zrhsMcJeJNXUnXuKKPCSSoAFkxLm2DcS/dynamic_preferences/globalpreferencemodel/).
+4. **Механизм укорачивания ссылок**.
 
-Test task checklist
--------------------
+Рассматривалось 2 варианта.
+- 1 вариант.
 
-✅ Telegram bot
+Просто использовать хэширование длинной строки в короткую.
 
-- ✅ Production - webhook, development - long polling
-- ✅ /start command
-- ✅ ReplyKeyboardMarkup with 3 buttons - BTC, ETH, DOGE
-- ✅ Getting current exchange rate (to USD) when push the corresponding button
-- ✅ Error messages
-- ✅ Cryptocurrency API integration (CryptoCompare as a provider)
+*Плюсы*: просто, ссылки непоследовательны, а значит, приватны.
 
-✅ Django admin panel
+*Минусы*: есть вероятность возникновения коллизий, в этом случае можно предварительно проверять существование короткой ссылки в БД и генерировать новую, в случае существования. Однако при увеличении числа записей в БД, вероятность коллизий будет увеличиваться, соответственно, увеличится общее время на проверку и создание новой уникальной строки.
 
-- ✅ List of telegram bot users (fields - First launch of the
-    bot, User ID, @Username, Last Name)
-- ✅ Configured search bar and filters
-- ✅ Editable bot messages and buttons
-    (django-dynamic-preferences)
-- ✅ No unnecessary links, buttons, sections, etc.
-- ✅ Custom styles (CSS)
+- 2 вариант.
 
-Further plans
--------------
-⬜️ Validation at admin panel preferences
+Использовать id ссылки, который формируется в БД, и конвертировать его в строку с определенной минимальной длиной.
 
-⬜️ Tests
+*Плюсы*: для уникального id создается уникальная ссылка, не нужно дополнительно проверять в БД; в случае утери данных БД, можно легко сгенерировать заново по созданному алгоритму; для получения длинной ссылки можно переводить ссылку обратно в id БД и обращаться к нему, т.е индексы БД занимают меньше места.
 
-⬜️ Mypy successful checks
+*Минусы*: без соли ссылки не приватны, их можно конвертировать обратно в id, таким образом, получив доступ к любой ссылке.
+Выбран 2 вариант, т.к его использование не предусматривает возникновения коллизий в случае одинаковой соли для каждой сгенерированной строки.
 
-Settings
---------
+5. **Деплой.**
 
-To run your project for both development and production you should have
-the following files that contain all the settings:
+Приложение разворачивается в контейнерах Docker.
+
+Настройки проекта
+-----------------
+
+Чтобы запустить проект локально и на продакшене, нужно чтобы были заполнены .env файлы с настройками Django и БД Postgres.
 
     $ cd .envs
 
@@ -72,49 +111,41 @@ the following files that contain all the settings:
 
       $ ├── .local
       $ │   ├── .django
-      $ │   ├── .postgres
-      $ │   └── .telegram
+      $ │   └── .postgres
       $ └── .production
       $     ├── .django
-      $     ├── .postgres
-      $     └── .telegram
+      $     └── .postgres
 
-Installation and running locally (development)
-----------------------------------------------
+Запуск проекта локально (в среде разработки)
+--------------------------------------------
 
-1.  Check whether PostgreSQL, Docker, Docker-compose, Git are installed
-    and set up on your machine.
+1.  Убедитесь,чтобы  PostgreSQL, Docker, Docker-compose, Git были установлены на вашей машине.
 
-2.  Within your virtual env:
+2.  В установленной и активированной среде окружения Python выполните:
 
         $ pip install -r requirements/local.txt
 
-3.  Run migrations within docker container:
+3.  Выполните миграции Django:
 
         $ docker-compose -f local.yml run --rm django python manage.py migrate
 
-4.  Create superuser to get an access to the admin panel:
-
-        $ docker-compose -f local.yml run --rm django python manage.py createsuperuser
-
-5.  Build and up this project using docker-compose:
+4.  Разверните и запустите проект через docker-compose:
 
         $ docker-compose -f local.yml up --build -d
 
-Installation and running globally (production)
-----------------------------------------------
+Запуск проекта на продакшене
+----------------------------
 
-1.  Check whether PostgreSQL, Docker, Docker-compose, Git are installed
-    and set up on your machine.
+1.  Убедитесь,чтобы  PostgreSQL, Docker, Docker-compose, Git были установлены на вашей машине.
 
-2.  Run migrations within docker container:
+2.  В установленной и активированной среде окружения Python выполните:
+
+        $ pip install -r requirements/production.txt
+
+3.  Выполните миграции Django:
 
         $ docker-compose -f production.yml run --rm django python manage.py migrate
 
-3.  Create superuser to get an access to the admin panel:
-
-        $ docker-compose -f production.yml run --rm django python manage.py createsuperuser
-
-4.  Build and up this project using docker-compose:
+4.  Разверните и запустите проект через docker-compose:
 
         $ docker-compose -f production.yml up --build -d
