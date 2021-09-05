@@ -26,7 +26,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
-    image: simple_shortener_production_postgres
+    image: simple_shortener_local_postgres
     container_name: postgres_simple_shortener
     volumes:
       - local_postgres_data:/var/lib/postgresql/data:Z
